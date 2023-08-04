@@ -1,0 +1,64 @@
+# Make sure you have these packages installed
+# If not, use: install.packages(c("shiny", "DT", "haven", "plyr"))
+
+library(shiny)
+library(DT)
+library(haven)
+library(plyr) # for the revalue function
+
+# Set the file path to your specific dataset
+file_path <- "Your_file_path.sas7bdat"
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      uiOutput("varSelect1"),
+      uiOutput("varSelect2")
+    ),
+    mainPanel(
+      DTOutput("table")
+    )
+  )
+)
+
+server <- function(input, output, session){
+  
+  # The dataset is read from the specific file path
+  df <- reactive({
+    df <- read_sas(file_path)
+    df
+  })
+  
+  output$varSelect1 <- renderUI({
+    selectInput("var1", "Choose the first variable", choices = names(df()))
+  })
+  
+  output$varSelect2 <- renderUI({
+    selectInput("var2", "Choose the second variable", choices = names(df()))
+  })
+  
+  output$table <- renderDT({
+    req(input$var1)
+    req(input$var2)
+    
+    # Create your translation vectors here
+    translation1 <- c("1" = "Label 1", "2" = "Label 2", "3" = "Label 3") # Replace with your actual labels
+    translation2 <- c("1" = "Label A", "2" = "Label B", "3" = "Label C") # Replace with your actual labels
+    
+    var1 <- as.factor(df()[[input$var1]])
+    var2 <- as.factor(df()[[input$var2]])
+    
+    # Apply the translations
+    var1 <- revalue(var1, translation1)
+    var2 <- revalue(var2, translation2)
+    
+    tbl <- table(var1, var2)
+    df_tbl <- as.data.frame(tbl)
+    total <- sum(tbl)
+    df_tbl$Freq <- round(df_tbl$Freq / total * 100, 2) # round to 2 decimal places
+    names(df_tbl) <- c(input$var1, input$var2, "Percentage")
+    datatable(df_tbl)
+  })
+}
+
+shinyApp(ui, server)
